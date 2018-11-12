@@ -79,25 +79,25 @@ def velocity_plot(each_joint_velocity, t_b, t_a):
     t_a *= 100  # to present in milliseconds
     t_b *= 100
 
-    for [i], v in np.ndenumerate(each_joint_velocity):
-        plt.figure(i+1)
-        plt.ylabel('velocity, rad/s')
-        plt.xlabel('time, ms')
-        plt.title('joint '+str(i+1))
+    plt.ylabel('velocity, rad/s')
+    plt.xlabel('time, ms')
+    plt.title('joint velocities')
 
+    for [i], v in np.ndenumerate(each_joint_velocity):
         if t_a > 0:  # trapezium
             x1, y1 = [0, t_b, t_a+t_b], [0, v, v]
             x2, y2 = [t_b, t_a+t_b, t_a+2*t_b], [v, v, 0]
         else:  # triangle
             x1, y1 = [0, t_b], [0, v]
             x2, y2 = [t_b, 2 * t_b], [v, 0]
-        plt.plot(x1, y1, x2, y2, marker = 'o')
-        plt.show()
+        plt.plot(x1, y1, x2, y2, label='Joint '+str(i+1),)
+    plt.legend()
+    plt.show()
 
 # J = jacobian()
 # print(J)
 
 q0 = np.array([0.1, 0.2, 0.3])
-qf = np.array([0.2, 4, 0.6])
+qf = np.array([0.2, 2, 0.6])
 
 velocity_plot(*ptp_trajectory(q0, qf))
