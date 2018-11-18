@@ -47,13 +47,11 @@ def jacobian():
 
 def ptp_trajectory(q0, qf):
     dq = qf - q0
+    dq_abs = np.abs(dq)
     # dq is a figure area, max_joint_velocity is a height
-    t_ba = np.around(dq / max_joint_velocity, 2)
+    t_ba = np.around(dq_abs / max_joint_velocity, 2)
     # t_b is a time for which acceleration > 0 and constant
     t_b = np.around(max_joint_velocity / max_joint_acceleration, 2)
-
-    print(t_ba)
-    print(t_b)
 
     if np.any(t_b < t_ba):
         # trapezium
@@ -63,41 +61,62 @@ def ptp_trajectory(q0, qf):
         # we need the velocity plots of each joint to look like trapeziums of equal length
         each_joint_velocity = dq / (t_a_max + t_b)
 
-        return each_joint_velocity, t_b, t_a_max
+        time = np.zeros(shape=(dq.shape[0], 4))
+        time[:, 0] = 0
+        time[:, 1] = t_b
+        time[:, 2] = t_a_max + t_b
+        time[:, 3] = t_a_max + 2 * t_b
+
+        v = np.zeros(shape=(dq.shape[0], 4))
+        v[:, 0] = 0
+        v[:, 1] = each_joint_velocity
+        v[:, 2] = each_joint_velocity
+        v[:, 3] = 0
+
+        return time, v
     else:
         # triangle
         # dq = t_b * v_max
         # t_b = v_max / acc => dq = t_b ^ 2 * acc
-        t_b = np.around(np.sqrt(dq/max_joint_acceleration), 2)
+        t_b = np.around(np.sqrt(dq_abs/max_joint_acceleration), 2)
         t_b_max = np.amax(t_b)
         each_joint_velocity = dq / t_b_max
-        return each_joint_velocity, t_b_max, 0
+
+        time = np.zeros(shape=(dq.shape[0], 3))
+        time[:, 0] = 0
+        time[:, 1] = t_b_max
+        time[:, 2] = 2 * t_b_max
+
+        v = np.zeros(shape=(dq.shape[0], 3))
+        v[:, 0] = 0
+        v[:, 1] = each_joint_velocity
+        v[:, 2] = 0
+
+        return time, v
 
 
 # draws 3 plots since articulated RRR robot has 3 joints
-def velocity_plot(each_joint_velocity, t_b, t_a):
-    t_a *= 100  # to present in milliseconds
-    t_b *= 100
-
+def velocity_plot(time, v):
     plt.ylabel('velocity, rad/s')
     plt.xlabel('time, ms')
     plt.title('joint velocities')
 
-    for [i], v in np.ndenumerate(each_joint_velocity):
-        if t_a > 0:  # trapezium
-            x1, y1 = [0, t_b, t_a+t_b], [0, v, v]
-            x2, y2 = [t_b, t_a+t_b, t_a+2*t_b], [v, v, 0]
-        else:  # triangle
-            x1, y1 = [0, t_b], [0, v]
-            x2, y2 = [t_b, 2 * t_b], [v, 0]
+    for i in range(0, time.shape[0]):
+        x1 = time[i, 0:-1]
+        x2 = time[i, 1:]
+        y1 = v[i, 0:-1]
+        y2 = v[i, 1:]
         plt.plot(x1, y1, x2, y2, label='Joint '+str(i+1),)
     plt.legend()
     plt.show()
 
+
+# def junction(each_joint_velocity,)
+
 # J = jacobian()
 # print(J)
 
-q0 = np.array([0.1, 0.2, 0.3])
-qf = np.array([0.2, 2, 0.6])
+q0 = np.array([0.1, -0.2, 0.3])
+qf = np.array([0.2, -2, 0.6])
 
 velocity_plot(*ptp_trajectory(q0, qf))
