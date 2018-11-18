@@ -13,6 +13,12 @@ max_joint_acceleration = 1
 max_cartesian_acceleration = 1
 junction = 5 / max_freq
 
+q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
+
+robot_l1 = 1
+robot_l2 = 4
+robot_l3 = 3
+
 
 def jacobian_revolute(T_i, T_n):
     Z_i = T_i[0:3, 2]
@@ -29,7 +35,6 @@ def jacobian_prismatic(T_i, T_n):
 
 # for artuculated RRR robot
 def jacobian():
-    q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
     T0 = eye(4)
     T0_1 = rz(q1)
     T0_2 = T0_1 * tz(l1)
@@ -57,57 +62,73 @@ def ptp_trajectory(q0, qf):
         # trapezium
         t_a = t_ba - t_b  # t_a is a time of constant velocity
         t_a_max = np.amax(t_a)
+        t_f = t_a_max + 2 * t_b
 
         # we need the velocity plots of each joint to look like trapeziums of equal length
         each_joint_velocity = dq / (t_a_max + t_b)
+        each_joint_acceleration = each_joint_velocity / t_b
 
-        time = np.zeros(shape=(dq.shape[0], 4))
-        time[:, 0] = 0
-        time[:, 1] = t_b
-        time[:, 2] = t_a_max + t_b
-        time[:, 3] = t_a_max + 2 * t_b
+        # time = np.zeros(shape=(dq.shape[0], 4))
+        # time[:, 0] = 0
+        # time[:, 1] = t_b
+        # time[:, 2] = t_a_max + t_b
+        # time[:, 3] = t_a_max + 2 * t_b
 
-        v = np.zeros(shape=(dq.shape[0], 4))
-        v[:, 0] = 0
-        v[:, 1] = each_joint_velocity
-        v[:, 2] = each_joint_velocity
-        v[:, 3] = 0
+        time = np.arange(0, t_f+0.005, 0.01)
+        v = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        for (i,), cur_time in np.ndenumerate(time):
+            if cur_time < t_b:
+                v[:, i] = each_joint_acceleration * cur_time
+            elif cur_time < t_a_max + t_b:
+                v[:, i] = each_joint_velocity
+            else:
+                v[:, i] = each_joint_acceleration * (t_f - cur_time)
 
-        return time, v
+        return v
     else:
         # triangle
         # dq = t_b * v_max
         # t_b = v_max / acc => dq = t_b ^ 2 * acc
         t_b = np.around(np.sqrt(dq_abs/max_joint_acceleration), 2)
         t_b_max = np.amax(t_b)
+        t_f = 2 * t_b_max
         each_joint_velocity = dq / t_b_max
+        each_joint_acceleration = each_joint_velocity / t_b_max
+        print(t_f)
+        time = np.arange(0, t_f + 0.005, 0.01)
+        v = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        for (i,), cur_time in np.ndenumerate(time):
+            if cur_time < t_b_max:
+                v[:, i] = each_joint_acceleration * cur_time
+            else:
+                v[:, i] = each_joint_acceleration * (t_f - cur_time)
 
-        time = np.zeros(shape=(dq.shape[0], 3))
-        time[:, 0] = 0
-        time[:, 1] = t_b_max
-        time[:, 2] = 2 * t_b_max
+        return v
 
-        v = np.zeros(shape=(dq.shape[0], 3))
-        v[:, 0] = 0
-        v[:, 1] = each_joint_velocity
-        v[:, 2] = 0
+def lin_trajectory(x0, xf):
+    dist = np.linalg.norm(xf - x0)
+    t_ba = np.around(dist / max_cartesian_velocty, 2)
+    t_b = np.around(max_cartesian_velocty / max_cartesian_acceleration, 2)
+    if t_b < t_ba:
+        t_a = t_ba - t_b
 
-        return time, v
+
 
 
 # draws 3 plots since articulated RRR robot has 3 joints
-def velocity_plot(time, v):
+def velocity_plot(v):
     plt.ylabel('velocity, rad/s')
     plt.xlabel('time, ms')
     plt.title('joint velocities')
 
-    for i in range(0, time.shape[0]):
-        x1 = time[i, 0:-1]
-        x2 = time[i, 1:]
+    time = np.arange(0, v.shape[1] * 0.01 - 0.005, 0.01)
+
+    for i in range(0, v.shape[0]):
+        x1 = time[0:-1]
+        x2 = time[1:]
         y1 = v[i, 0:-1]
         y2 = v[i, 1:]
-        plt.plot(x1, y1, x2, y2, label='Joint '+str(i+1),)
-    plt.legend()
+        plt.plot(x1, y1, x2, y2)
     plt.show()
 
 
@@ -117,6 +138,6 @@ def velocity_plot(time, v):
 # print(J)
 
 q0 = np.array([0.1, -0.2, 0.3])
-qf = np.array([0.2, -2, 0.6])
+qf = np.array([0.2, 2, 0.6])
 
-velocity_plot(*ptp_trajectory(q0, qf))
+velocity_plot(ptp_trajectory(q0, qf))
