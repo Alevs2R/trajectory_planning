@@ -2,6 +2,8 @@ from sympy import *
 import numpy as np
 from elementary_transormations import *
 import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
+
 
 from inverse_kinematics import inv_kin
 
@@ -21,6 +23,18 @@ robot_l2 = 4
 robot_l3 = 3
 
 L = np.array([robot_l1, robot_l2, robot_l3])
+
+
+def forw_kin(q):
+    q1 = q[0]
+    q2 = q[1]
+    q3 = q[2]
+    return np.array([
+        (robot_l2 * np.cos(q2) + robot_l3 * np.cos(q2 + q3)) * np.cos(q1),
+        (robot_l2 * np.cos(q2) + robot_l3 * np.cos(q2 + q3)) * np.sin(q1),
+        robot_l1 - robot_l2 * np.sin(q2) - robot_l3 * np.sin(q2 + q3)
+    ])
+
 
 # for artuculated RRR robot
 def jacobian():
@@ -178,10 +192,23 @@ def lin_trajectory(x0, xf):
             else:
                 v_cartesian[i] = max_cartesian_acceleration * (t_f - cur_time)
 
+    plt.figure(0)
+    plt.ylabel('velocity, m')
+    plt.xlabel('time, s')
+    plt.title('cartesian velocity')
+    x1 = time[0:-1]
+    x2 = time[1:]
+    y1 = v_cartesian[0:-1]
+    y2 = v_cartesian[1:]
+    plt.plot(x1, y1, x2, y2)
+    plt.show()
+
     # done for cartesian velocity
     # now calculate joint velocities
 
     v = np.zeros(shape=(3, time.shape[0]))  # 3 because there are 3 joints
+
+
     pos = np.zeros(shape=(3, time.shape[0]))
     acc = np.zeros(shape=(3, time.shape[0]))
 
@@ -199,49 +226,103 @@ def lin_trajectory(x0, xf):
 
 # draws 3 plots since articulated RRR robot has 3 joints
 def motion_plot(pos, v, acc):
-    time = np.arange(0, v.shape[1] * 0.01 - 0.005, 0.01)
+        time = np.arange(0, v.shape[1] * 0.01 - 0.005, 0.01)
 
-    plt.figure(1)
-    plt.ylabel('position, rad')
-    plt.xlabel('time, ms')
-    plt.title('joint positions')
+        plt.figure(1)
+        plt.ylabel('position, rad')
+        plt.xlabel('time, ms')
+        plt.title('joint positions')
 
-    for i in range(0, v.shape[0]):
+        for i in range(0, v.shape[0]):
+            x1 = time[0:-1]
+            x2 = time[1:]
+            y1 = pos[i, 0:-1]
+            y2 = pos[i, 1:]
+            plt.plot(x1, y1, x2, y2)
+        plt.show()
+
+        plt.figure(2)
+        plt.ylabel('velocity, rad')
+        plt.xlabel('time, ms')
+        plt.title('joint velocities')
+
+        for i in range(0, v.shape[0]):
+            x1 = time[0:-1]
+            x2 = time[1:]
+            y1 = v[i, 0:-1]
+            y2 = v[i, 1:]
+            plt.plot(x1, y1, x2, y2)
+        plt.show()
+
+        plt.figure(3)
+        plt.ylabel('position, rad')
+        plt.xlabel('time, ms')
+        plt.title('joint accelerations')
+
+        cartesian_pos = np.zeros(shape=(3, pos.shape[1]))
+
+        for i in range(0, v.shape[0]):
+            x1 = time[0:-1]
+            x2 = time[1:]
+            y1 = acc[i, 0:-1]
+            y2 = acc[i, 1:]
+            plt.plot(x1, y1, x2, y2)
+        plt.show()
+
+        for i in range(0, pos.shape[1]):
+            cartesian_pos[:, i] = forw_kin(pos[:, i].flatten())
+            print(cartesian_pos[:, i])
+
+        # plt.figure(4)
+        # ax = plt.axes(projection='3d')
+        # ax.set_xlabel('X axis')
+        # ax.set_ylabel('Y axis')
+        # ax.set_zlabel('Z axis')
+        # ax.plot3D(cartesian_pos[0, :].flatten(), cartesian_pos[1, :].flatten(), cartesian_pos[2:, ].flatten(), 'gray')
+        # plt.show()
+
+        plt.figure(4)
+        plt.ylabel('position, m')
+        plt.xlabel('time, s')
+        plt.title('X cartesian axis')
+
         x1 = time[0:-1]
         x2 = time[1:]
-        y1 = pos[i, 0:-1]
-        y2 = pos[i, 1:]
+        y1 = cartesian_pos[0, 0:-1]
+        y2 = cartesian_pos[0, 1:]
         plt.plot(x1, y1, x2, y2)
-    plt.show()
+        plt.ylim([0, 7])
 
-    plt.figure(1)
-    plt.ylabel('velocity, rad')
-    plt.xlabel('time, ms')
-    plt.title('joint velocities')
+        plt.show()
 
-    for i in range(0, v.shape[0]):
+
+        plt.figure(5)
+        plt.ylabel('position, m')
+        plt.xlabel('time, s')
+        plt.title('Y cartesian axis')
+
         x1 = time[0:-1]
         x2 = time[1:]
-        y1 = v[i, 0:-1]
-        y2 = v[i, 1:]
+        y1 = cartesian_pos[1, 0:-1]
+        y2 = cartesian_pos[1, 1:]
         plt.plot(x1, y1, x2, y2)
-    plt.show()
+        plt.ylim([0, 7])
+        plt.show()
 
-    plt.figure(1)
-    plt.ylabel('position, rad')
-    plt.xlabel('time, ms')
-    plt.title('joint accelerations')
 
-    for i in range(0, v.shape[0]):
+        plt.figure(6)
+        plt.ylabel('position, m')
+        plt.xlabel('time, s')
+        plt.title('Z cartesian axis')
+
         x1 = time[0:-1]
         x2 = time[1:]
-        y1 = acc[i, 0:-1]
-        y2 = acc[i, 1:]
+        y1 = cartesian_pos[2, 0:-1]
+        y2 = cartesian_pos[2, 1:]
         plt.plot(x1, y1, x2, y2)
-    plt.show()
+        plt.ylim([0, 2])
+        plt.show()
 
-
-# def junction(each_joint_velocity,)
 
 # J = jacobian()
 # print(J)
@@ -260,6 +341,6 @@ def motion_plot(pos, v, acc):
 #
 # motion_plot(*ptp_trajectory(q0, qf))
 
-x0 = np.array([2, 5, 2])
-xf = np.array([1, 5, 2])
+x0 = np.array([4, 5.1, 1])
+xf = np.array([1, 5, 0.9])
 motion_plot(*lin_trajectory(x0, xf))
