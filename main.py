@@ -45,7 +45,10 @@ def jacobian():
     return J
 
 # already calculated inverse jacobian
-def jacobian_inverse(q1, q2, q3):
+def jacobian_inverse(q):
+    q1 = q[0]
+    q2 = q[1]
+    q3 = q[2]
     inverse = np.array([
         [-np.sin(q1) / (robot_l2 * np.cos(q2) + robot_l3 * np.cos(q2 + q3)),
          np.cos(q1) / (robot_l2 * np.cos(q2) + robot_l3 * np.cos(q2 + q3)), 0],
@@ -76,14 +79,13 @@ def ptp_trajectory(q0, qf):
         each_joint_velocity = dq / (t_a_max + t_b)
         each_joint_acceleration = each_joint_velocity / t_b
 
-        # time = np.zeros(shape=(dq.shape[0], 4))
-        # time[:, 0] = 0
-        # time[:, 1] = t_b
-        # time[:, 2] = t_a_max + t_b
-        # time[:, 3] = t_a_max + 2 * t_b
-
         time = np.arange(0, t_f+0.005, 0.01)  # add 0.005 to create array with correct size
         v = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        pos = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        acc = np.zeros(shape=(dq.shape[0], time.shape[0]))
+
+        pos[:, 0] = q0
+
         for (i,), cur_time in np.ndenumerate(time):
             if cur_time < t_b:
                 v[:, i] = each_joint_acceleration * cur_time
@@ -92,7 +94,12 @@ def ptp_trajectory(q0, qf):
             else:
                 v[:, i] = each_joint_acceleration * (t_f - cur_time)
 
-        return v
+        for (i,), cur_time in np.ndenumerate(time):
+            if i > 0:
+                acc[:, i] = v[:, i] - v[:, i - 1]
+                pos[:, i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01
+
+        return pos, v, acc
     else:
         # triangle
         # dq = t_b * v_max
@@ -104,13 +111,23 @@ def ptp_trajectory(q0, qf):
         each_joint_acceleration = each_joint_velocity / t_b_max
         time = np.arange(0, t_f + 0.005, 0.01)
         v = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        pos = np.zeros(shape=(dq.shape[0], time.shape[0]))
+        acc = np.zeros(shape=(dq.shape[0], time.shape[0]))
+
+        pos[:, 0] = q0
+
         for (i,), cur_time in np.ndenumerate(time):
             if cur_time < t_b_max:
                 v[:, i] = each_joint_acceleration * cur_time
             else:
                 v[:, i] = each_joint_acceleration * (t_f - cur_time)
 
-        return v
+        for (i,), cur_time in np.ndenumerate(time):
+            if i > 0:
+                acc[i] = v[:, i] - v[:, i - 1]
+                pos[i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01
+
+        return pos, v, acc
 
 
 def lin_trajectory(x0, xf):
@@ -127,40 +144,80 @@ def lin_trajectory(x0, xf):
     q0 = inv_kin(x0, L)
     qf = inv_kin(xf, L)
 
-    def get_velocity_components(module_v):
-        return np.array([module_v * cos_a * cos_b, module_v * cos_a * sin_b, module_v * sin_a])
+    def get_joint_components(module):
+        return np.array([module * cos_a * cos_b, module * cos_a * sin_b, module * sin_a])
 
     t_ba = np.around(dist / max_cartesian_velocity, 2)
     t_b = np.around(max_cartesian_velocity / max_cartesian_acceleration, 2)
+
+    time = 0
+    v_cartesian = 0
+
     if t_b < t_ba:
         t_a = t_ba - t_b
         t_f = t_ba + t_b
         time = np.arange(0, t_f + 0.005, 0.01)  # add 0.005 to create array with correct size
-        v = np.zeros(shape=(3, time.shape[0]))  # 3 because there are 3 joints
-        pos = np.zeros(shape=(3, time.shape[0]))
+        v_cartesian = np.zeros(time.shape[0])  # 3 because there are 3 joints
+
         for (i,), cur_time in np.ndenumerate(time):
             if cur_time < t_b:
-                cur_v = max_cartesian_acceleration * cur_time
-                v[:, i] = jacobian_inverse()get_velocity_components(cur_v)
+                v_cartesian[i] = max_cartesian_acceleration * cur_time
             elif cur_time < t_a + t_b:
-                v[:, i] = max_cartesian_velocity
+                v_cartesian[i] = max_cartesian_velocity
             else:
-                v[:, i] = max_cartesian_acceleration * (t_f - cur_time)
+                v_cartesian[i] = max_cartesian_acceleration * (t_f - cur_time)
+
     else:
         t_b = np.around(np.sqrt(dist/max_joint_acceleration), 2)
-        actual_cartesian_velocity = dist / t_b
-        x_v =
+        t_f = 2 * t_b
+        time = np.arange(0, t_f + 0.005, 0.01)  # add 0.005 to create array with correct size
+        v_cartesian = np.zeros(time.shape[0])  # 3 because there are 3 joints
+        for (i,), cur_time in np.ndenumerate(time):
+            if cur_time < t_b:
+                v_cartesian[i] = max_cartesian_acceleration * cur_time
+            else:
+                v_cartesian[i] = max_cartesian_acceleration * (t_f - cur_time)
 
+    # done for cartesian velocity
+    # now calculate joint velocities
 
+    v = np.zeros(shape=(3, time.shape[0]))  # 3 because there are 3 joints
+    pos = np.zeros(shape=(3, time.shape[0]))
+    acc = np.zeros(shape=(3, time.shape[0]))
+
+    pos[:, 0] = q0
+
+    for (i,), cur_time in np.ndenumerate(time):
+        if i == 0:
+            continue
+        v[:, i] = np.dot(jacobian_inverse(pos[:, i - 1]), get_joint_components(v_cartesian[i]))
+        acc[:, i - 1] = v[:, i] - v[:, i - 1]
+        pos[:, i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01  # arithmetic mean
+
+    return pos, v, acc
 
 
 # draws 3 plots since articulated RRR robot has 3 joints
-def velocity_plot(v):
-    plt.ylabel('velocity, rad/s')
+def motion_plot(pos, v, acc):
+    time = np.arange(0, v.shape[1] * 0.01 - 0.005, 0.01)
+
+    plt.figure(1)
+    plt.ylabel('position, rad')
+    plt.xlabel('time, ms')
+    plt.title('joint positions')
+
+    for i in range(0, v.shape[0]):
+        x1 = time[0:-1]
+        x2 = time[1:]
+        y1 = pos[i, 0:-1]
+        y2 = pos[i, 1:]
+        plt.plot(x1, y1, x2, y2)
+    plt.show()
+
+    plt.figure(1)
+    plt.ylabel('velocity, rad')
     plt.xlabel('time, ms')
     plt.title('joint velocities')
-
-    time = np.arange(0, v.shape[1] * 0.01 - 0.005, 0.01)
 
     for i in range(0, v.shape[0]):
         x1 = time[0:-1]
@@ -170,13 +227,26 @@ def velocity_plot(v):
         plt.plot(x1, y1, x2, y2)
     plt.show()
 
+    plt.figure(1)
+    plt.ylabel('position, rad')
+    plt.xlabel('time, ms')
+    plt.title('joint accelerations')
+
+    for i in range(0, v.shape[0]):
+        x1 = time[0:-1]
+        x2 = time[1:]
+        y1 = acc[i, 0:-1]
+        y2 = acc[i, 1:]
+        plt.plot(x1, y1, x2, y2)
+    plt.show()
+
 
 # def junction(each_joint_velocity,)
 
-J = jacobian()
-print(J)
-
-print(jacobian_inverse(1,2,3))
+# J = jacobian()
+# print(J)
+#
+# print(jacobian_inverse(1,2,3))
 
 
 # J_real = J.subs([(l1, robot_l1), (l2, robot_l2), (l3, robot_l3)]);
@@ -186,6 +256,10 @@ print(jacobian_inverse(1,2,3))
 #
 
 # q0 = np.array([0.1, -0.2, 0.3])
-# qf = np.array([0.2, 2, 0.6])
+# qf = np.array([0.5, 2, 0.8])
 #
-# velocity_plot(ptp_trajectory(q0, qf))
+# motion_plot(*ptp_trajectory(q0, qf))
+
+x0 = np.array([2, 5, 2])
+xf = np.array([1, 5, 2])
+motion_plot(*lin_trajectory(x0, xf))
