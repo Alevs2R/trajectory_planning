@@ -15,7 +15,7 @@ max_joint_acceleration = 1
 max_cartesian_acceleration = 1
 junction = 5 / max_freq
 
-q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
+# q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
 
 # for artuculated RRR robot
 def jacobian():
@@ -109,6 +109,8 @@ def ptp_trajectory(q0, qf):
         pos = np.zeros(shape=(dq.shape[0], time.shape[0]))
         acc = np.zeros(shape=(dq.shape[0], time.shape[0]))
 
+        print(dq.shape[0])
+
         pos[:, 0] = q0
 
         for (i,), cur_time in np.ndenumerate(time):
@@ -119,8 +121,8 @@ def ptp_trajectory(q0, qf):
 
         for (i,), cur_time in np.ndenumerate(time):
             if i > 0:
-                acc[i] = v[:, i] - v[:, i - 1]
-                pos[i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01
+                acc[:, i-1] = v[:, i] - v[:, i - 1]
+                pos[:, i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01
 
         return pos, v, acc
 
@@ -206,6 +208,85 @@ def lin_trajectory(x0, xf):
 
 
 
+def arc_trajectory(x0, xf):
+    dist = np.linalg.norm(xf - x0)
+    dist_z = xf[2] - x0[2]
+    dist_y = xf[1] - x0[1]
+    dist_x = xf[0] - x0[0]
+    dist_xy = np.sqrt(dist_x**2 + dist_y**2)
+    sin_a = dist_z / dist
+    cos_a = dist_xy / dist
+    cos_b = dist_x / dist_xy
+    sin_b = dist_y / dist_xy
+
+    q0 = inv_kin(x0, L)
+    qf = inv_kin(xf, L)
+
+    def get_joint_components(module):
+        return np.array([module * cos_a * cos_b, module * cos_a * sin_b, module * sin_a])
+
+    t_ba = np.around(dist / max_cartesian_velocity, 2)
+    t_b = np.around(max_cartesian_velocity / max_cartesian_acceleration, 2)
+
+    time = 0
+    v_cartesian = 0
+
+    if t_b < t_ba:
+        t_a = t_ba - t_b
+        t_f = t_ba + t_b
+        time = np.arange(0, t_f + 0.005, 0.01)  # add 0.005 to create array with correct size
+        v_cartesian = np.zeros(time.shape[0])  # 3 because there are 3 joints
+
+        for (i,), cur_time in np.ndenumerate(time):
+            if cur_time < t_b:
+                v_cartesian[i] = max_cartesian_acceleration * cur_time
+            elif cur_time < t_a + t_b:
+                v_cartesian[i] = max_cartesian_velocity
+            else:
+                v_cartesian[i] = max_cartesian_acceleration * (t_f - cur_time)
+
+    else:
+        t_b = np.around(np.sqrt(dist/max_joint_acceleration), 2)
+        t_f = 2 * t_b
+        time = np.arange(0, t_f + 0.005, 0.01)  # add 0.005 to create array with correct size
+        v_cartesian = np.zeros(time.shape[0])  # 3 because there are 3 joints
+        for (i,), cur_time in np.ndenumerate(time):
+            if cur_time < t_b:
+                v_cartesian[i] = max_cartesian_acceleration * cur_time
+            else:
+                v_cartesian[i] = max_cartesian_acceleration * (t_f - cur_time)
+
+    plt.figure(0)
+    plt.ylabel('velocity, m')
+    plt.xlabel('time, s')
+    plt.title('cartesian velocity')
+    x1 = time[0:-1]
+    x2 = time[1:]
+    y1 = v_cartesian[0:-1]
+    y2 = v_cartesian[1:]
+    plt.plot(x1, y1, x2, y2)
+    plt.show()
+
+    # done for cartesian velocity
+    # now calculate joint velocities
+
+    v = np.zeros(shape=(3, time.shape[0]))  # 3 because there are 3 joints
+
+
+    pos = np.zeros(shape=(3, time.shape[0]))
+    acc = np.zeros(shape=(3, time.shape[0]))
+
+    pos[:, 0] = q0
+
+    for (i,), cur_time in np.ndenumerate(time):
+        if i == 0:
+            continue
+        v[:, i] = np.dot(jacobian_inverse(pos[:, i - 1]), get_joint_components(v_cartesian[i]))
+        acc[:, i - 1] = v[:, i] - v[:, i - 1]
+        pos[:, i] = pos[:, i - 1] + (v[:, i] + v[:, i - 1]) / 2 * 0.01  # arithmetic mean
+
+    return pos, v, acc
+
 # J = jacobian()
 # print(J)
 #
@@ -223,6 +304,22 @@ def lin_trajectory(x0, xf):
 #
 # motion_plot(*ptp_trajectory(q0, qf))
 
-x0 = np.array([4, 5.1, 1])
-xf = np.array([1, 5, 0.9])
-motion_plot(*lin_trajectory(x0, xf))
+q0 = np.array([0, 0, 0])
+x1 = np.array([4, 5.1, 1])
+q1 = inv_kin(x1, L)
+x2 = np.array([1, 5, 0.9])
+q2 = inv_kin(x2, L)
+q3 = np.array([1, 1, 1])
+q4 = np.array([2, 1.5, 3])
+
+trajectory1 = ptp_trajectory(q0, q1)
+trajectory2 = lin_trajectory(x1, x2)
+trajectory3 = ptp_trajectory(q2, q3)
+trajectory4 = ptp_trajectory(q3, q4)
+
+pos = np.hstack((trajectory1[0], trajectory2[0], trajectory3[0], trajectory4[0]))
+v = np.hstack((trajectory1[1], trajectory2[1], trajectory3[1], trajectory4[1]))
+acc = np.hstack((trajectory1[2], trajectory2[2], trajectory3[2], trajectory4[2]))
+
+
+motion_plot(pos, v, acc)
