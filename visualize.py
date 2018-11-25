@@ -15,8 +15,8 @@ def motion_plot(pos, v, acc):
 
         for i in range(0, v.shape[0]):
             plt.plot(time, pos[i, :], 'C'+str(i+1))
+        plt.savefig('plots/joint_positions.png')
         plt.show()
-        plt.savefig('joint_positions.png')
 
         plt.figure(2)
         plt.ylabel('velocity, rad')
@@ -25,8 +25,8 @@ def motion_plot(pos, v, acc):
 
         for i in range(0, v.shape[0]):
             plt.plot(time, v[i, :], 'C'+str(i+1))
+        plt.savefig('plots/joint velocities.png')
         plt.show()
-        plt.savefig('joint velocities.png')
 
         plt.figure(3)
         plt.ylabel('position, rad')
@@ -35,8 +35,8 @@ def motion_plot(pos, v, acc):
         cartesian_pos = np.zeros(shape=(3, pos.shape[1]))
         for i in range(0, v.shape[0]):
             plt.plot(time, acc[i, :], 'C'+str(i+1))
+        plt.savefig('plots/joint_accelerations.png')
         plt.show()
-        plt.savefig('joint_accelerations.png')
 
         for i in range(0, pos.shape[1]):
             cartesian_pos[:, i] = forw_kin(pos[:, i].flatten(), L)
@@ -55,10 +55,10 @@ def motion_plot(pos, v, acc):
         plt.xlabel('time, s')
         plt.title('X cartesian axis')
         plt.plot(time, cartesian_pos[0])
-        plt.ylim([0, 7])
+        plt.ylim([-3, 7])
 
+        plt.savefig('plots/x_position.png')
         plt.show()
-        plt.savefig('x_position.png')
 
 
         plt.figure(5)
@@ -66,9 +66,9 @@ def motion_plot(pos, v, acc):
         plt.xlabel('time, s')
         plt.title('Y cartesian axis')
         plt.plot(time, cartesian_pos[1])
-        plt.ylim([0, 7])
+        plt.ylim([-3, 7])
+        plt.savefig('plots/y_position.png')
         plt.show()
-        plt.savefig('y_position.png')
 
 
         plt.figure(6)
@@ -76,6 +76,6 @@ def motion_plot(pos, v, acc):
         plt.xlabel('time, s')
         plt.title('Z cartesian axis')
         plt.plot(time, cartesian_pos[2])
-        plt.ylim([0, 2])
+        plt.ylim([-7, 2])
+        plt.savefig('plots/z_position.png')
         plt.show()
-        plt.savefig('z_position.png')
