@@ -10,7 +10,7 @@ def motion_plot(pos, v, acc):
 
         plt.figure(1)
         plt.ylabel('position, rad')
-        plt.xlabel('time, ms')
+        plt.xlabel('time, s')
         plt.title('joint positions')
 
         for i in range(0, v.shape[0]):
@@ -20,7 +20,7 @@ def motion_plot(pos, v, acc):
 
         plt.figure(2)
         plt.ylabel('velocity, rad')
-        plt.xlabel('time, ms')
+        plt.xlabel('time, s')
         plt.title('joint velocities')
 
         for i in range(0, v.shape[0]):
@@ -29,7 +29,7 @@ def motion_plot(pos, v, acc):
         plt.show()
 
         plt.figure(3)
-        plt.ylabel('position, rad')
+        plt.ylabel('rad/s^2')
         plt.xlabel('time, ms')
         plt.title('joint accelerations')
         cartesian_pos = np.zeros(shape=(3, pos.shape[1]))
@@ -40,7 +40,6 @@ def motion_plot(pos, v, acc):
 
         for i in range(0, pos.shape[1]):
             cartesian_pos[:, i] = forw_kin(pos[:, i].flatten(), L)
-            print(cartesian_pos[:, i])
 
         # plt.figure(4)
         # ax = plt.axes(projection='3d')
@@ -55,7 +54,7 @@ def motion_plot(pos, v, acc):
         plt.xlabel('time, s')
         plt.title('X cartesian axis')
         plt.plot(time, cartesian_pos[0])
-        plt.ylim([-3, 7])
+        plt.ylim([-3, 10])
 
         plt.savefig('plots/x_position.png')
         plt.show()
