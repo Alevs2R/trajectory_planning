@@ -15,7 +15,7 @@ max_joint_acceleration = 1
 max_cartesian_acceleration = 1
 junction_steps = 100
 
-# q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
+q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
 
 # for artuculated RRR robot
 def jacobian():
@@ -306,20 +306,6 @@ def junction(t1, t2,):
 
 # J = jacobian()
 # print(J)
-#
-# print(jacobian_inverse(1,2,3))
-
-
-# J_real = J.subs([(l1, robot_l1), (l2, robot_l2), (l3, robot_l3)]);
-#
-# print(simplify(J_real**-1))
-# print(J_real)
-#
-
-# q0 = np.array([0.1, -0.2, 0.3])
-# qf = np.array([0.5, 2, 0.8])
-#
-# motion_plot(*ptp_trajectory(q0, qf))
 
 q0 = np.array([0, 0, 0])
 x1 = np.array([4, 5.1, 1])
@@ -340,10 +326,5 @@ t14_with_junction = junction(t13_with_junction, trajectory4)
 pos = t14_with_junction[0]
 v = t14_with_junction[1]
 acc = t14_with_junction[2]
-
-# pos = np.hstack((trajectory1[0], trajectory2[0], trajectory3[0], trajectory4[0]))
-# v = np.hstack((trajectory1[1], trajectory2[1], trajectory3[1], trajectory4[1]))
-# acc = np.hstack((trajectory1[2], trajectory2[2], trajectory3[2], trajectory4[2]))
-
 
 motion_plot(pos, v, acc)
