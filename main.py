@@ -13,7 +13,7 @@ max_joint_velocity = 1
 max_cartesian_velocity = 1
 max_joint_acceleration = 1
 max_cartesian_acceleration = 1
-junction_steps = 100
+junction_steps = 50
 
 q1, q2, q3, l1, l2, l3 = symbols('q1 q2 q3 l1 l2 l3')
 
@@ -293,7 +293,7 @@ def junction(t1, t2,):
     new_pos = t1[0]
     new_acc = t1[2]
     v2 = t2[1]
-    shift = junction_steps // 2 + 1
+    shift = junction_steps
     for i in range(-shift, 0):
         v1[:, i] += v2[:, shift+i]
         new_acc[:, i] = (v1[:, i] - v1[:, i - 1]) * max_freq
